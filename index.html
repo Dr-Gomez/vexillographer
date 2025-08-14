@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Vexillographer</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      #flagCanvas {
+        border: 1px solid #000;
+        margin-bottom: 20px;
+        cursor: move;
+      }
+      .toolbar {
+        margin-bottom: 15px;
+        padding: 10px;
+        background: #f0f0f0;
+        border-radius: 5px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .tool-group {
+        display: flex;
+        flex-direction: column;
+        padding: 5px;
+        border-right: 1px solid #ccc;
+        margin-right: 10px;
+      }
+      label {
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      button {
+        padding: 5px 10px;
+        margin: 2px 0;
+        cursor: pointer;
+      }
+      .selected {
+        background-color: #4caf50;
+        color: white;
+      }
+      .shape-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Vexillographer</h1>
+
+    <div class="toolbar">
+      <div class="tool-group">
+        <label>Background</label>
+        <input type="color" id="bgColor" value="#ffffff" />
+        <button id="applyBgBtn">Apply Background</button>
+      </div>
+
+      <div class="tool-group">
+        <label>Element Color</label>
+        <input type="color" id="color" value="#ff0000" />
+      </div>
+
+      <div class="tool-group">
+        <label>Basic Shapes</label>
+        <div class="shape-grid">
+          <button id="rectBtn">Rectangle</button>
+          <button id="circleBtn">Circle</button>
+          <button id="triangleBtn">Triangle</button>
+          <button id="diamondBtn">Diamond</button>
+          <button id="pentagonBtn">Pentagon</button>
+          <button id="hexagonBtn">Hexagon</button>
+        </div>
+      </div>
+
+      <div class="tool-group">
+        <label>Symbols</label>
+        <div class="shape-grid">
+          <button id="starBtn">Star</button>
+          <button id="crescentBtn">Crescent</button>
+          <button id="crossBtn">Cross</button>
+          <button id="saltireBtn">Saltire</button>
+          <button id="chevronBtn">Chevron</button>
+          <button id="sunBtn">Sun</button>
+        </div>
+      </div>
+
+      <div class="tool-group">
+        <label>Stripes & Dividers</label>
+        <button id="hStripeBtn">Horizontal Stripe</button>
+        <button id="vStripeBtn">Vertical Stripe</button>
+        <button id="diagonalBtn">Diagonal Stripe</button>
+        <button id="hDivideBtn">Horizontal Divide</button>
+        <button id="vDivideBtn">Vertical Divide</button>
+        <button id="tricolorHBtn">Tricolor (H)</button>
+        <button id="tricolorVBtn">Tricolor (V)</button>
+      </div>
+
+      <div class="tool-group">
+        <label>Actions</label>
+        <button id="clearBtn">Clear Flag</button>
+        <button id="downloadBtn">Download Flag</button>
+        <button id="bringForwardBtn">Bring Forward</button>
+        <button id="sendBackwardBtn">Send Backward</button>
+      </div>
+    </div>
+
+    <canvas id="flagCanvas" width="600" height="400"></canvas>
+
+    <div>
+      <strong>Instructions:</strong>
+      <ul>
+        <li>Click to add elements.</li>
+        <li>Drag to move.</li>
+        <li>Select with click and use arrow keys for precise movement.</li>
+        <li>Use the shift key for faster movement with the arrow keys.</li>
+        <li>Delete key removes selected element.</li>
+      </ul>
+
+      <strong>Guide:</strong>
+      <ul>
+        <li>
+          Size: Every flag made in the flag maker is 600x400 pixels (the correct
+          size).
+        </li>
+        <li>
+          Contrast: Use high-contrast colors. Flags need to be recognizable.
+        </li>
+      </ul>
+    </div>
+
+    <script>
+      const canvas = document.getElementById("flagCanvas");
+      const ctx = canvas.getContext("2d");
+      const colorPicker = document.getElementById("color");
+      const bgColorPicker = document.getElementById("bgColor");
+      const applyBgBtn = document.getElementById("applyBgBtn");
+      const rectBtn = document.getElementById("rectBtn");
+      const circleBtn = document.getElementById("circleBtn");
+      const triangleBtn = document.getElementById("triangleBtn");
+      const diamondBtn = document.getElementById("diamondBtn");
+      const pentagonBtn = document.getElementById("pentagonBtn");
+      const hexagonBtn = document.getElementById("hexagonBtn");
+      const starBtn = document.getElementById("starBtn");
+      const crescentBtn = document.getElementById("crescentBtn");
+      const crossBtn = document.getElementById("crossBtn");
+      const saltireBtn = document.getElementById("saltireBtn");
+      const chevronBtn = document.getElementById("chevronBtn");
+      const sunBtn = document.getElementById("sunBtn");
+      const hStripeBtn = document.getElementById("hStripeBtn");
+      const vStripeBtn = document.getElementById("vStripeBtn");
+      const diagonalBtn = document.getElementById("diagonalBtn");
+      const hDivideBtn = document.getElementById("hDivideBtn");
+      const vDivideBtn = document.getElementById("vDivideBtn");
+      const tricolorHBtn = document.getElementById("tricolorHBtn");
+      const tricolorVBtn = document.getElementById("tricolorVBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const downloadBtn = document.getElementById("downloadBtn");
+      const bringForwardBtn = document.getElementById("bringForwardBtn");
+      const sendBackwardBtn = document.getElementById("sendBackwardBtn");
+
+      let elements = [];
+      let currentColor = "#ff0000";
+      let selectedElement = null;
+      let isDragging = false;
+      let dragOffsetX = 0;
+      let dragOffsetY = 0;
+
+      function initCanvas() {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        elements = [];
+        selectedElement = null;
+        renderCanvas();
+      }
+
+      function renderCanvas() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (elements.length > 0 && elements[0].type === "background") {
+          ctx.fillStyle = elements[0].color;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        } else {
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        const startIdx =
+          elements.length > 0 && elements[0].type === "background" ? 1 : 0;
+        for (let i = startIdx; i < elements.length; i++) {
+          const el = elements[i];
+          ctx.fillStyle = el.color;
+
+          if (el.type === "rect") {
+            ctx.fillRect(el.x, el.y, el.width, el.height);
+          } else if (el.type === "circle") {
+            ctx.beginPath();
+            ctx.arc(el.x, el.y, el.radius, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (el.type === "triangle") {
+            drawTriangle(ctx, el.x, el.y, el.size, el.rotation);
+          } else if (el.type === "diamond") {
+            drawDiamond(ctx, el.x, el.y, el.width, el.height);
+          } else if (el.type === "pentagon") {
+            drawRegularPolygon(ctx, el.x, el.y, el.radius, 5, el.rotation);
+          } else if (el.type === "hexagon") {
+            drawRegularPolygon(ctx, el.x, el.y, el.radius, 6, el.rotation);
+          } else if (el.type === "star") {
+            drawStar(ctx, el.x, el.y, el.points, el.radius, el.innerRadius);
+          } else if (el.type === "crescent") {
+            drawCrescent(
+              ctx,
+              el.x,
+              el.y,
+              el.radius,
+              el.innerRadius,
+              el.rotation
+            );
+          } else if (el.type === "cross") {
+            drawCross(ctx, el.x, el.y, el.width, el.height, el.thickness);
+          } else if (el.type === "saltire") {
+            drawSaltire(ctx, el.x, el.y, el.width, el.height, el.thickness);
+          } else if (el.type === "chevron") {
+            drawChevron(ctx, el.x, el.y, el.width, el.height, el.direction);
+          } else if (el.type === "sun") {
+            drawSun(ctx, el.x, el.y, el.radius, el.rays, el.rayLength);
+          } else if (el.type === "hStripe") {
+            ctx.fillRect(0, el.y, canvas.width, el.height);
+          } else if (el.type === "vStripe") {
+            ctx.fillRect(el.x, 0, el.width, canvas.height);
+          } else if (el.type === "diagonal") {
+            drawDiagonal(
+              ctx,
+              el.x,
+              el.y,
+              el.width,
+              el.height,
+              el.angle,
+              el.thickness
+            );
+          } else if (el.type === "hDivide") {
+            ctx.fillRect(0, 0, canvas.width, el.height1);
+            ctx.fillStyle = el.color2;
+            ctx.fillRect(
+              0,
+              el.height1,
+              canvas.width,
+              canvas.height - el.height1
+            );
+          } else if (el.type === "vDivide") {
+            ctx.fillRect(0, 0, el.width1, canvas.height);
+            ctx.fillStyle = el.color2;
+            ctx.fillRect(el.width1, 0, canvas.width - el.width1, canvas.height);
+          } else if (el.type === "tricolorH") {
+            const third = canvas.height / 3;
+            ctx.fillRect(0, 0, canvas.width, third);
+            ctx.fillStyle = el.color2;
+            ctx.fillRect(0, third, canvas.width, third);
+            ctx.fillStyle = el.color3;
+            ctx.fillRect(0, 2 * third, canvas.width, third);
+          } else if (el.type === "tricolorV") {
+            const third = canvas.width / 3;
+            ctx.fillRect(0, 0, third, canvas.height);
+            ctx.fillStyle = el.color2;
+            ctx.fillRect(third, 0, third, canvas.height);
+            ctx.fillStyle = el.color3;
+            ctx.fillRect(2 * third, 0, third, canvas.height);
+          }
+
+          if (el === selectedElement) {
+            ctx.strokeStyle = "#0000ff";
+            ctx.lineWidth = 2;
+            if (el.type === "rect") {
+              ctx.strokeRect(el.x, el.y, el.width, el.height);
+            } else if (el.type === "circle") {
+              ctx.beginPath();
+              ctx.arc(el.x, el.y, el.radius, 0, Math.PI * 2);
+              ctx.stroke();
+            } else if (el.type === "triangle") {
+              ctx.beginPath();
+              drawTrianglePath(ctx, el.x, el.y, el.size, el.rotation);
+              ctx.stroke();
+            } else if (el.type === "diamond") {
+              ctx.beginPath();
+              drawDiamondPath(ctx, el.x, el.y, el.width, el.height);
+              ctx.stroke();
+            } else if (el.type === "pentagon") {
+              ctx.beginPath();
+              drawRegularPolygonPath(
+                ctx,
+                el.x,
+                el.y,
+                el.radius,
+                5,
+                el.rotation
+              );
+              ctx.stroke();
+            } else if (el.type === "hexagon") {
+              ctx.beginPath();
+              drawRegularPolygonPath(
+                ctx,
+                el.x,
+                el.y,
+                el.radius,
+                6,
+                el.rotation
+              );
+              ctx.stroke();
+            } else if (el.type === "star") {
+              ctx.beginPath();
+              drawStarPath(
+                ctx,
+                el.x,
+                el.y,
+                el.points,
+                el.radius,
+                el.innerRadius
+              );
+              ctx.stroke();
+            } else if (el.type === "crescent") {
+              ctx.beginPath();
+              drawCrescentPath(
+                ctx,
+                el.x,
+                el.y,
+                el.radius,
+                el.innerRadius,
+                el.rotation
+              );
+              ctx.stroke();
+            } else if (el.type === "cross") {
+              ctx.beginPath();
+              drawCrossPath(ctx, el.x, el.y, el.width, el.height, el.thickness);
+              ctx.stroke();
+            } else if (el.type === "saltire") {
+              ctx.beginPath();
+              drawSaltirePath(
+                ctx,
+                el.x,
+                el.y,
+                el.width,
+                el.height,
+                el.thickness
+              );
+              ctx.stroke();
+            } else if (el.type === "chevron") {
+              ctx.beginPath();
+              drawChevronPath(
+                ctx,
+                el.x,
+                el.y,
+                el.width,
+                el.height,
+                el.direction
+              );
+              ctx.stroke();
+            } else if (el.type === "sun") {
+              ctx.beginPath();
+              drawSunPath(ctx, el.x, el.y, el.radius, el.rays, el.rayLength);
+              ctx.stroke();
+            } else if (el.type === "hStripe") {
+              ctx.strokeRect(0, el.y, canvas.width, el.height);
+            } else if (el.type === "vStripe") {
+              ctx.strokeRect(el.x, 0, el.width, canvas.height);
+            } else if (el.type === "diagonal") {
+              ctx.beginPath();
+              drawDiagonalPath(
+                ctx,
+                el.x,
+                el.y,
+                el.width,
+                el.height,
+                el.angle,
+                el.thickness
+              );
+              ctx.stroke();
+            } else if (
+              el.type === "hDivide" ||
+              el.type === "vDivide" ||
+              el.type === "tricolorH" ||
+              el.type === "tricolorV"
+            ) {
+            }
+          }
+        }
+      }
+
+      function drawTriangle(ctx, x, y, size, rotation = 0) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rotation);
+        ctx.beginPath();
+        ctx.moveTo(0, -size);
+        ctx.lineTo((-size * Math.sqrt(3)) / 2, size / 2);
+        ctx.lineTo((size * Math.sqrt(3)) / 2, size / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawTrianglePath(ctx, x, y, size, rotation = 0) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rotation);
+        ctx.beginPath();
+        ctx.moveTo(0, -size);
+        ctx.lineTo((-size * Math.sqrt(3)) / 2, size / 2);
+        ctx.lineTo((size * Math.sqrt(3)) / 2, size / 2);
+        ctx.closePath();
+        ctx.restore();
+      }
+
+      function drawDiamond(ctx, x, y, width, height) {
+        ctx.beginPath();
+        ctx.moveTo(x, y - height / 2);
+        ctx.lineTo(x + width / 2, y);
+        ctx.lineTo(x, y + height / 2);
+        ctx.lineTo(x - width / 2, y);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      function drawDiamondPath(ctx, x, y, width, height) {
+        ctx.beginPath();
+        ctx.moveTo(x, y - height / 2);
+        ctx.lineTo(x + width / 2, y);
+        ctx.lineTo(x, y + height / 2);
+        ctx.lineTo(x - width / 2, y);
+        ctx.closePath();
+      }
+
+      function drawRegularPolygon(ctx, x, y, radius, sides, rotation = 0) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rotation);
+        ctx.beginPath();
+        for (let i = 0; i < sides; i++) {
+          const angle = (i * 2 * Math.PI) / sides - Math.PI / 2;
+          ctx.lineTo(radius * Math.cos(angle), radius * Math.sin(angle));
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawRegularPolygonPath(ctx, x, y, radius, sides, rotation = 0) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rotation);
+        ctx.beginPath();
+        for (let i = 0; i < sides; i++) {
+          const angle = (i * 2 * Math.PI) / sides - Math.PI / 2;
+          ctx.lineTo(radius * Math.cos(angle), radius * Math.sin(angle));
+        }
+        ctx.closePath();
+        ctx.restore();
+      }
+
+      function drawStar(ctx, cx, cy, points, outerRadius, innerRadius) {
+        drawStarPath(ctx, cx, cy, points, outerRadius, innerRadius);
+        ctx.fill();
+      }
+
+      function drawStarPath(ctx, cx, cy, points, outerRadius, innerRadius) {
+        const angle = Math.PI / points;
+
+        ctx.beginPath();
+        for (let i = 0; i < 2 * points; i++) {
+          const radius = i % 2 === 0 ? outerRadius : innerRadius;
+          const x = cx + radius * Math.sin(i * angle);
+          const y = cy - radius * Math.cos(i * angle);
+
+          if (i === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.closePath();
+      }
+
+      function drawCrescent(
+        ctx,
+        cx,
+        cy,
+        outerRadius,
+        innerRadius,
+        rotation = 0
+      ) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(rotation);
+
+        ctx.beginPath();
+        ctx.arc(0, 0, outerRadius, 0, Math.PI * 2);
+
+        ctx.moveTo(-innerRadius, 0);
+        ctx.arc(outerRadius * 0.4, 0, innerRadius, 0, Math.PI * 2, true);
+
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawCrescentPath(
+        ctx,
+        cx,
+        cy,
+        outerRadius,
+        innerRadius,
+        rotation = 0
+      ) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(rotation);
+
+        ctx.beginPath();
+        ctx.arc(0, 0, outerRadius, 0, Math.PI * 2);
+        ctx.moveTo(-innerRadius, 0);
+        ctx.arc(outerRadius * 0.4, 0, innerRadius, 0, Math.PI * 2, true);
+
+        ctx.restore();
+      }
+
+      function drawCross(ctx, cx, cy, width, height, thickness) {
+        ctx.fillRect(cx - thickness / 2, cy - height / 2, thickness, height);
+        ctx.fillRect(cx - width / 2, cy - thickness / 2, width, thickness);
+      }
+
+      function drawCrossPath(ctx, cx, cy, width, height, thickness) {
+        ctx.beginPath();
+        ctx.rect(cx - thickness / 2, cy - height / 2, thickness, height);
+        ctx.rect(cx - width / 2, cy - thickness / 2, width, thickness);
+      }
+
+      function drawSaltire(ctx, cx, cy, width, height, thickness) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(Math.PI / 4);
+
+        ctx.fillRect(-width / 2, -thickness / 2, width, thickness);
+        ctx.fillRect(-thickness / 2, -width / 2, thickness, width);
+
+        ctx.restore();
+      }
+
+      function drawSaltirePath(ctx, cx, cy, width, height, thickness) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(Math.PI / 4);
+
+        ctx.beginPath();
+        ctx.rect(-width / 2, -thickness / 2, width, thickness);
+        ctx.rect(-thickness / 2, -width / 2, thickness, width);
+
+        ctx.restore();
+      }
+
+      function drawChevron(ctx, cx, cy, width, height, direction = "up") {
+        ctx.beginPath();
+        if (direction === "up") {
+          ctx.moveTo(cx - width / 2, cy + height / 2);
+          ctx.lineTo(cx, cy - height / 2);
+          ctx.lineTo(cx + width / 2, cy + height / 2);
+        } else {
+          ctx.moveTo(cx - width / 2, cy - height / 2);
+          ctx.lineTo(cx, cy + height / 2);
+          ctx.lineTo(cx + width / 2, cy - height / 2);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      function drawChevronPath(ctx, cx, cy, width, height, direction = "up") {
+        ctx.beginPath();
+        if (direction === "up") {
+          ctx.moveTo(cx - width / 2, cy + height / 2);
+          ctx.lineTo(cx, cy - height / 2);
+          ctx.lineTo(cx + width / 2, cy + height / 2);
+        } else {
+          ctx.moveTo(cx - width / 2, cy - height / 2);
+          ctx.lineTo(cx, cy + height / 2);
+          ctx.lineTo(cx + width / 2, cy - height / 2);
+        }
+        ctx.closePath();
+      }
+
+      function drawSun(ctx, cx, cy, radius, rays, rayLength) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        for (let i = 0; i < rays; i++) {
+          const angle = (i * 2 * Math.PI) / rays;
+          const x1 = cx + radius * Math.cos(angle);
+          const y1 = cy + radius * Math.sin(angle);
+          const x2 = cx + (radius + rayLength) * Math.cos(angle);
+          const y2 = cy + (radius + rayLength) * Math.sin(angle);
+
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.lineWidth = 5;
+          ctx.strokeStyle = ctx.fillStyle;
+          ctx.stroke();
+        }
+      }
+
+      function drawSunPath(ctx, cx, cy, radius, rays, rayLength) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      }
+
+      function drawDiagonal(ctx, cx, cy, width, height, angle, thickness) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+
+        ctx.fillRect(-width / 2, -thickness / 2, width, thickness);
+
+        ctx.restore();
+      }
+
+      function drawDiagonalPath(ctx, cx, cy, width, height, angle, thickness) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+
+        ctx.beginPath();
+        ctx.rect(-width / 2, -thickness / 2, width, thickness);
+
+        ctx.restore();
+      }
+
+      function isPointInElement(x, y, el) {
+        if (el.type === "rect") {
+          return (
+            x >= el.x &&
+            x <= el.x + el.width &&
+            y >= el.y &&
+            y <= el.y + el.height
+          );
+        } else if (el.type === "circle") {
+          const dx = x - el.x;
+          const dy = y - el.y;
+          return Math.sqrt(dx * dx + dy * dy) <= el.radius;
+        } else if (el.type === "triangle") {
+          const dx = x - el.x;
+          const dy = y - el.y;
+          return Math.sqrt(dx * dx + dy * dy) <= el.size;
+        } else if (el.type === "diamond") {
+          const dx = x - el.x;
+          const dy = y - el.y;
+          return (
+            Math.sqrt(dx * dx + dy * dy) <= Math.max(el.width, el.height) / 2
+          );
+        } else if (el.type === "pentagon" || el.type === "hexagon") {
+          const dx = x - el.x;
+          const dy = y - el.y;
+          return Math.sqrt(dx * dx + dy * dy) <= el.radius;
+        } else if (el.type === "star") {
+          const dx = x - el.x;
+          const dy = y - el.y;
+          return Math.sqrt(dx * dx + dy * dy) <= el.radius;
+        } else if (el.type === "crescent") {
+          const dx = x - el.x;
+          const dy = y - el.y;
+          return Math.sqrt(dx * dx + dy * dy) <= el.outerRadius;
+        } else if (el.type === "cross") {
+          if (
+            x >= el.x - el.thickness / 2 &&
+            x <= el.x + el.thickness / 2 &&
+            y >= el.y - el.height / 2 &&
+            y <= el.y + el.height / 2
+          ) {
+            return true;
+          }
+          if (
+            x >= el.x - el.width / 2 &&
+            x <= el.x + el.width / 2 &&
+            y >= el.y - el.thickness / 2 &&
+            y <= el.y + el.thickness / 2
+          ) {
+            return true;
+          }
+          return false;
+        } else if (el.type === "saltire") {
+          const dx = x - el.x;
+          const dy = y - el.y;
+          return (
+            Math.sqrt(dx * dx + dy * dy) <= Math.max(el.width, el.height) / 2
+          );
+        } else if (el.type === "chevron") {
+          return (
+            x >= el.x - el.width / 2 &&
+            x <= el.x + el.width / 2 &&
+            y >= el.y - el.height / 2 &&
+            y <= el.y + el.height / 2
+          );
+        } else if (el.type === "sun") {
+          const dx = x - el.x;
+          const dy = y - el.y;
+          return Math.sqrt(dx * dx + dy * dy) <= el.radius + el.rayLength;
+        } else if (el.type === "hStripe") {
+          return y >= el.y && y <= el.y + el.height;
+        } else if (el.type === "vStripe") {
+          return x >= el.x && x <= el.x + el.width;
+        } else if (el.type === "diagonal") {
+          const dx = x - el.x;
+          const dy = y - el.y;
+          return (
+            Math.sqrt(dx * dx + dy * dy) <= Math.max(el.width, el.height) / 2
+          );
+        } else if (
+          el.type === "hDivide" ||
+          el.type === "vDivide" ||
+          el.type === "tricolorH" ||
+          el.type === "tricolorV"
+        ) {
+          return true;
+        }
+        return false;
+      }
+
+      colorPicker.addEventListener("input", (e) => {
+        currentColor = e.target.value;
+        if (selectedElement) {
+          selectedElement.color = currentColor;
+          if (
+            selectedElement.type === "hDivide" ||
+            selectedElement.type === "vDivide"
+          ) {
+            selectedElement.color2 = currentColor;
+          } else if (
+            selectedElement.type === "tricolorH" ||
+            selectedElement.type === "tricolorV"
+          ) {
+            selectedElement.color2 = currentColor;
+            selectedElement.color3 = currentColor;
+          }
+          renderCanvas();
+        }
+      });
+
+      applyBgBtn.addEventListener("click", () => {
+        if (elements.length > 0 && elements[0].type === "background") {
+          elements[0].color = bgColorPicker.value;
+        } else {
+          elements.unshift({
+            type: "background",
+            color: bgColorPicker.value,
+          });
+        }
+        renderCanvas();
+      });
+
+      rectBtn.addEventListener("click", () => {
+        const width = Math.floor(canvas.width * 0.3);
+        const height = Math.floor(canvas.height * 0.3);
+        const x = Math.floor((canvas.width - width) / 2);
+        const y = Math.floor((canvas.height - height) / 2);
+
+        const newRect = {
+          type: "rect",
+          x: x,
+          y: y,
+          width: width,
+          height: height,
+          color: currentColor,
+        };
+
+        elements.push(newRect);
+        selectedElement = newRect;
+        renderCanvas();
+      });
+
+      circleBtn.addEventListener("click", () => {
+        const radius = Math.floor(Math.min(canvas.width, canvas.height) * 0.15);
+        const x = Math.floor(canvas.width / 2);
+        const y = Math.floor(canvas.height / 2);
+
+        const newCircle = {
+          type: "circle",
+          x: x,
+          y: y,
+          radius: radius,
+          color: currentColor,
+        };
+
+        elements.push(newCircle);
+        selectedElement = newCircle;
+        renderCanvas();
+      });
+
+      triangleBtn.addEventListener("click", () => {
+        const size = Math.floor(Math.min(canvas.width, canvas.height) * 0.2);
+        const x = Math.floor(canvas.width / 2);
+        const y = Math.floor(canvas.height / 2);
+
+        const newTriangle = {
+          type: "triangle",
+          x: x,
+          y: y,
+          size: size,
+          rotation: 0,
+          color: currentColor,
+        };
+
+        elements.push(newTriangle);
+        selectedElement = newTriangle;
+        renderCanvas();
+      });
+
+      diamondBtn.addEventListener("click", () => {
+        const width = Math.floor(canvas.width * 0.3);
+        const height = Math.floor(canvas.height * 0.2);
+        const x = Math.floor(canvas.width / 2);
+        const y = Math.floor(canvas.height / 2);
+
+        const newDiamond = {
+          type: "diamond",
+          x: x,
+          y: y,
+          width: width,
+          height: height,
+          color: currentColor,
+        };
+
+        elements.push(newDiamond);
+        selectedElement = newDiamond;
+        renderCanvas();
+      });
+
+      pentagonBtn.addEventListener("click", () => {
+        const radius = Math.floor(Math.min(canvas.width, canvas.height) * 0.15);
+        const x = Math.floor(canvas.width / 2);
+        const y = Math.floor(canvas.height / 2);
+
+        const newPentagon = {
+          type: "pentagon",
+          x: x,
+          y: y,
+          radius: radius,
+          rotation: 0,
+          color: currentColor,
+        };
+
+        elements.push(newPentagon);
+        selectedElement = newPentagon;
+        renderCanvas();
+      });
+
+      hexagonBtn.addEventListener("click", () => {
+        const radius = Math.floor(Math.min(canvas.width, canvas.height) * 0.15);
+        const x = Math.floor(canvas.width / 2);
+        const y = Math.floor(canvas.height / 2);
+
+        const newHexagon = {
+          type: "hexagon",
+          x: x,
+          y: y,
+          radius: radius,
+          rotation: 0,
+          color: currentColor,
+        };
+
+        elements.push(newHexagon);
+        selectedElement = newHexagon;
+        renderCanvas();
+      });
+
+      starBtn.addEventListener("click", () => {
+        const radius = Math.floor(Math.min(canvas.width, canvas.height) * 0.15);
+        const x = Math.floor(canvas.width / 2);
+        const y = Math.floor(canvas.height / 2);
+
+        const newStar = {
+          type: "star",
+          x: x,
+          y: y,
+          points: 5,
+          radius: radius,
+          innerRadius: radius * 0.4,
+          color: currentColor,
+        };
+
+        elements.push(newStar);
+        selectedElement = newStar;
+        renderCanvas();
+      });
+
+      crescentBtn.addEventListener("click", () => {
+        const radius = Math.floor(Math.min(canvas.width, canvas.height) * 0.15);
+        const x = Math.floor(canvas.width / 2);
+        const y = Math.floor(canvas.height / 2);
+
+        const newCrescent = {
+          type: "crescent",
+          x: x,
+          y: y,
+          outerRadius: radius,
+          innerRadius: radius * 0.7,
+          rotation: 0,
+          color: currentColor,
+        };
+
+        elements.push(newCrescent);
+        selectedElement = newCrescent;
+        renderCanvas();
+      });
+
+      crossBtn.addEventListener("click", () => {
+        const width = Math.floor(canvas.width * 0.3);
+        const height = Math.floor(canvas.height * 0.3);
+        const thickness = Math.floor(Math.min(width, height) * 0.2);
+        const x = Math.floor(canvas.width / 2);
+        const y = Math.floor(canvas.height / 2);
+
+        const newCross = {
+          type: "cross",
+          x: x,
+          y: y,
+          width: width,
+          height: height,
+          thickness: thickness,
+          color: currentColor,
+        };
+
+        elements.push(newCross);
+        selectedElement = newCross;
+        renderCanvas();
+      });
+
+      saltireBtn.addEventListener("click", () => {
+        const width = Math.floor(canvas.width * 0.4);
+        const height = Math.floor(canvas.height * 0.4);
+        const thickness = Math.floor(Math.min(width, height) * 0.15);
+        const x = Math.floor(canvas.width / 2);
+        const y = Math.floor(canvas.height / 2);
+
+        const newSaltire = {
+          type: "saltire",
+          x: x,
+          y: y,
+          width: width,
+          height: height,
+          thickness: thickness,
+          color: currentColor,
+        };
+
+        elements.push(newSaltire);
+        selectedElement = newSaltire;
+        renderCanvas();
+      });
+
+      chevronBtn.addEventListener("click", () => {
+        const width = Math.floor(canvas.width * 0.4);
+        const height = Math.floor(canvas.height * 0.2);
+        const x = Math.floor(canvas.width / 2);
+        const y = Math.floor(canvas.height / 2);
+
+        const newChevron = {
+          type: "chevron",
+          x: x,
+          y: y,
+          width: width,
+          height: height,
+          direction: "up",
+          color: currentColor,
+        };
+
+        elements.push(newChevron);
+        selectedElement = newChevron;
+        renderCanvas();
+      });
+
+      sunBtn.addEventListener("click", () => {
+        const radius = Math.floor(Math.min(canvas.width, canvas.height) * 0.1);
+        const x = Math.floor(canvas.width / 2);
+        const y = Math.floor(canvas.height / 2);
+
+        const newSun = {
+          type: "sun",
+          x: x,
+          y: y,
+          radius: radius,
+          rays: 8,
+          rayLength: radius * 0.8,
+          color: currentColor,
+        };
+
+        elements.push(newSun);
+        selectedElement = newSun;
+        renderCanvas();
+      });
+
+      hStripeBtn.addEventListener("click", () => {
+        const stripeHeight = Math.floor(canvas.height / 3);
+        const y = Math.floor((canvas.height - stripeHeight) / 2);
+
+        const newStripe = {
+          type: "hStripe",
+          y: y,
+          height: stripeHeight,
+          color: currentColor,
+        };
+
+        elements.push(newStripe);
+        selectedElement = newStripe;
+        renderCanvas();
+      });
+
+      vStripeBtn.addEventListener("click", () => {
+        const stripeWidth = Math.floor(canvas.width / 3);
+        const x = Math.floor((canvas.width - stripeWidth) / 2);
+
+        const newStripe = {
+          type: "vStripe",
+          x: x,
+          width: stripeWidth,
+          color: currentColor,
+        };
+
+        elements.push(newStripe);
+        selectedElement = newStripe;
+        renderCanvas();
+      });
+
+      diagonalBtn.addEventListener("click", () => {
+        const length = Math.floor(
+          Math.sqrt(canvas.width ** 2 + canvas.height ** 2) * 0.5
+        );
+        const thickness = Math.floor(
+          Math.min(canvas.width, canvas.height) * 0.05
+        );
+        const x = Math.floor(canvas.width / 2);
+        const y = Math.floor(canvas.height / 2);
+
+        const newDiagonal = {
+          type: "diagonal",
+          x: x,
+          y: y,
+          width: length,
+          height: thickness,
+          angle: Math.PI / 4,
+          thickness: thickness,
+          color: currentColor,
+        };
+
+        elements.push(newDiagonal);
+        selectedElement = newDiagonal;
+        renderCanvas();
+      });
+
+      hDivideBtn.addEventListener("click", () => {
+        const height1 = Math.floor(canvas.height / 2);
+
+        const newHDivide = {
+          type: "hDivide",
+          height1: height1,
+          color: currentColor,
+          color2: currentColor,
+        };
+
+        elements.push(newHDivide);
+        selectedElement = newHDivide;
+        renderCanvas();
+      });
+
+      vDivideBtn.addEventListener("click", () => {
+        const width1 = Math.floor(canvas.width / 2);
+
+        const newVDivide = {
+          type: "vDivide",
+          width1: width1,
+          color: currentColor,
+          color2: currentColor,
+        };
+
+        elements.push(newVDivide);
+        selectedElement = newVDivide;
+        renderCanvas();
+      });
+
+      tricolorHBtn.addEventListener("click", () => {
+        const newTricolorH = {
+          type: "tricolorH",
+          color: currentColor,
+          color2: currentColor,
+          color3: currentColor,
+        };
+
+        elements.push(newTricolorH);
+        selectedElement = newTricolorH;
+        renderCanvas();
+      });
+
+      tricolorVBtn.addEventListener("click", () => {
+        const newTricolorV = {
+          type: "tricolorV",
+          color: currentColor,
+          color2: currentColor,
+          color3: currentColor,
+        };
+
+        elements.push(newTricolorV);
+        selectedElement = newTricolorV;
+        renderCanvas();
+      });
+
+      clearBtn.addEventListener("click", initCanvas);
+
+      downloadBtn.addEventListener("click", () => {
+        const link = document.createElement("a");
+        link.download = "flag.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      });
+
+      bringForwardBtn.addEventListener("click", () => {
+        if (selectedElement) {
+          const index = elements.indexOf(selectedElement);
+          if (index < elements.length - 1) {
+            if (elements[0].type === "background" && index === 0) return;
+
+            const temp = elements[index];
+            elements[index] = elements[index + 1];
+            elements[index + 1] = temp;
+            renderCanvas();
+          }
+        }
+      });
+
+      sendBackwardBtn.addEventListener("click", () => {
+        if (selectedElement) {
+          const index = elements.indexOf(selectedElement);
+          if (index > 0) {
+            if (elements[0].type === "background" && index === 1) return;
+
+            const temp = elements[index];
+            elements[index] = elements[index - 1];
+            elements[index - 1] = temp;
+            renderCanvas();
+          }
+        }
+      });
+
+      canvas.addEventListener("mousedown", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        for (let i = elements.length - 1; i >= 0; i--) {
+          const el = elements[i];
+          if (el.type !== "background" && isPointInElement(x, y, el)) {
+            selectedElement = el;
+            isDragging = true;
+
+            if (
+              el.type === "rect" ||
+              el.type === "circle" ||
+              el.type === "star" ||
+              el.type === "triangle" ||
+              el.type === "diamond" ||
+              el.type === "pentagon" ||
+              el.type === "hexagon" ||
+              el.type === "crescent" ||
+              el.type === "cross" ||
+              el.type === "saltire" ||
+              el.type === "chevron" ||
+              el.type === "sun" ||
+              el.type === "diagonal"
+            ) {
+              dragOffsetX = x - el.x;
+              dragOffsetY = y - el.y;
+            } else if (el.type === "hStripe") {
+              dragOffsetY = y - el.y;
+            } else if (el.type === "vStripe") {
+              dragOffsetX = x - el.x;
+            }
+
+            renderCanvas();
+            return;
+          }
+        }
+
+        selectedElement = null;
+        renderCanvas();
+      });
+
+      canvas.addEventListener("mousemove", (e) => {
+        if (!isDragging || !selectedElement) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        if (
+          selectedElement.type === "rect" ||
+          selectedElement.type === "circle" ||
+          selectedElement.type === "star" ||
+          selectedElement.type === "triangle" ||
+          selectedElement.type === "diamond" ||
+          selectedElement.type === "pentagon" ||
+          selectedElement.type === "hexagon" ||
+          selectedElement.type === "crescent" ||
+          selectedElement.type === "cross" ||
+          selectedElement.type === "saltire" ||
+          selectedElement.type === "chevron" ||
+          selectedElement.type === "sun" ||
+          selectedElement.type === "diagonal"
+        ) {
+          selectedElement.x = x - dragOffsetX;
+          selectedElement.y = y - dragOffsetY;
+        } else if (selectedElement.type === "hStripe") {
+          selectedElement.y = y - dragOffsetY;
+        } else if (selectedElement.type === "vStripe") {
+          selectedElement.x = x - dragOffsetX;
+        }
+
+        renderCanvas();
+      });
+
+      canvas.addEventListener("mouseup", () => {
+        isDragging = false;
+      });
+
+      canvas.addEventListener("mouseleave", () => {
+        isDragging = false;
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (!selectedElement) return;
+
+        const moveAmount = e.shiftKey ? 10 : 1;
+
+        switch (e.key) {
+          case "ArrowUp":
+            if (selectedElement.type === "hStripe") {
+              selectedElement.y -= moveAmount;
+            } else {
+              selectedElement.y -= moveAmount;
+            }
+            e.preventDefault();
+            break;
+          case "ArrowDown":
+            if (selectedElement.type === "hStripe") {
+              selectedElement.y += moveAmount;
+            } else {
+              selectedElement.y += moveAmount;
+            }
+            e.preventDefault();
+            break;
+          case "ArrowLeft":
+            if (selectedElement.type === "vStripe") {
+              selectedElement.x -= moveAmount;
+            } else {
+              selectedElement.x -= moveAmount;
+            }
+            e.preventDefault();
+            break;
+          case "ArrowRight":
+            if (selectedElement.type === "vStripe") {
+              selectedElement.x += moveAmount;
+            } else {
+              selectedElement.x += moveAmount;
+            }
+            e.preventDefault();
+            break;
+          case "Delete":
+            if (selectedElement.type !== "background") {
+              const index = elements.indexOf(selectedElement);
+              if (index !== -1) {
+                elements.splice(index, 1);
+                selectedElement = null;
+              }
+            }
+            break;
+          case "r":
+            if (selectedElement.rotation !== undefined) {
+              selectedElement.rotation += Math.PI / 12;
+              renderCanvas();
+            }
+            break;
+          case "R":
+            if (selectedElement.rotation !== undefined) {
+              selectedElement.rotation -= Math.PI / 12;
+              renderCanvas();
+            }
+            break;
+          case "[":
+            if (selectedElement.innerRadius !== undefined) {
+              selectedElement.innerRadius = Math.max(
+                5,
+                selectedElement.innerRadius - 2
+              );
+              renderCanvas();
+            }
+            break;
+          case "]":
+            if (selectedElement.innerRadius !== undefined) {
+              selectedElement.innerRadius = Math.min(
+                selectedElement.radius - 5,
+                selectedElement.innerRadius + 2
+              );
+              renderCanvas();
+            }
+            break;
+          case "{":
+            if (selectedElement.radius !== undefined) {
+              selectedElement.radius = Math.max(10, selectedElement.radius - 2);
+              renderCanvas();
+            }
+            break;
+          case "}":
+            if (selectedElement.radius !== undefined) {
+              selectedElement.radius = Math.min(
+                200,
+                selectedElement.radius + 2
+              );
+              renderCanvas();
+            }
+            break;
+          case "-":
+            if (
+              selectedElement.points !== undefined &&
+              selectedElement.points > 3
+            ) {
+              selectedElement.points--;
+              renderCanvas();
+            }
+            break;
+          case "+":
+          case "=":
+            if (
+              selectedElement.points !== undefined &&
+              selectedElement.points < 20
+            ) {
+              selectedElement.points++;
+              renderCanvas();
+            }
+            break;
+        }
+
+        renderCanvas();
+      });
+
+      initCanvas();
+    </script>
+  </body>
+</html>
